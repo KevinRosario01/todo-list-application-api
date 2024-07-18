@@ -1,12 +1,19 @@
 "use client";
+import { createTodo } from "@/services/createTodo";
+import { deleteTodo } from "@/services/deleteTodo";
 import { getTodos } from "@/services/getTodos";
+import { useQuery } from "@tanstack/react-query";
 import React, { useEffect, useState } from "react";
 
-const TodoList = ( { user }) => {
+const TodoList = ({ user }) => {
+  const todosQuery = useQuery({
+    queryKey: ["todos", user],
+    queryFn: () => getTodos(user),
+  })
   const [todos, setTodos] = useState([]);
   const [task, setTask] = useState("");
 
-  const loadData = async () => {
+/*   const loadData = async () => {
     //Can put username directly
     const data = await getTodos(user);
     setTodos(data);
@@ -14,25 +21,40 @@ const TodoList = ( { user }) => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, []); */
 
   const handleChange = (ev) => {
     setTask(ev.target.value);
   };
 
-  const handleAddTodo = (ev) => {
+  const handleAddTodo = async (ev) => {
     if (ev.key === "Enter" && task.trim() !== "") {
-      const newTodo = { label: task.trim(), is_done: false };
-      setTodos([newTodo, ...todos]);
-      setTask("");
+      const newTodo = await createTodo(user, task.trim());
+      if (newTodo) {
+       // setTodos([...todos, newTodo]);
+        todosQuery.refetch();
+        setTask("");
+      }
     }
   };
 
-  const removeTodo = (index) => {
+/*   const removeTodo = (index) => {
+    const todo = todos[index];
     const newTodos = [...todos];
     newTodos.splice(index, 1);
     setTodos(newTodos);
+    deleteTodo(todo.id);
   };
+ */
+  const removeTodo = async (index) => {
+    const todo = todosQuery.data?.[index];
+  //  const newTodos = [...todos];
+  //  newTodos.splice(index, 1);
+  //  setTodos(newTodos);
+    await deleteTodo(todo.id);
+    todosQuery.refetch();
+  };
+
 
   return (
     <div className="bg-gray-100 flex justify-center items-center min-h-screen">
@@ -52,12 +74,13 @@ const TodoList = ( { user }) => {
             onKeyDown={handleAddTodo}
           />
           <ul className="mt-6 space-y-2">
-            {todos.length === 0 ? (
+          {todosQuery.isLoading && <div>Loading todos</div>}
+            {todosQuery.data?.length === 0 ? (
               <li className="text-gray-500 text-center">
                 No tasks, add a task
               </li>
             ) : (
-              todos.map((todo, index) => (
+              todosQuery.data?.map((todo, index) => (
                 <li
                   key={index}
                   className="flex justify-between items-center p-2 border-b border-gray-200 group"
@@ -74,9 +97,9 @@ const TodoList = ( { user }) => {
             )}
           </ul>
           <div className="mt-4 text-gray-600">
-            {todos.length > 0 ? (
+            {todosQuery.data?.length > 0 ? (
               <span>
-                {todos.length} {todos.length === 1 ? "item" : "items"} left
+                {todosQuery.data?.length} {todosQuery.data?.length === 1 ? "item" : "items"} left
               </span>
             ) : (
               <span>No items left</span>
